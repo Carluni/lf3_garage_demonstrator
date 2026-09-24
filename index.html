@@ -183,7 +183,7 @@ details li{margin-bottom:6px;max-width:75ch}
         <text x="270" y="222" text-anchor="middle" class="desc" id="evaState" style="font-weight:600;fill:var(--ink)"></text>
         <g id="evaOut"></g>
       </svg>
-      <div class="cover" id="cover">Blockschaltbild verborgen.<br>Zeichnet es zuerst selbst: Welche Signale gehen in die Steuerung hinein, welche kommen heraus?</div>
+      <div class="cover show" id="cover">Blockschaltbild verborgen.<br>Zeichnet es zuerst selbst: Welche Signale gehen in die Steuerung hinein, welche kommen heraus?</div>
       </div>
       <p class="kbd" style="margin:6px 0 0">Gelb = Signal 1. B3 arbeitet nach dem Ruhestromprinzip: 1 bedeutet „Strahl frei“.</p>
     </section>
@@ -493,7 +493,7 @@ details li{margin-bottom:6px;max-width:75ch}
   });
   $("btnCover").addEventListener("click", e=>{
     const on = !$("cover").classList.contains("show");
-    $("cover").classList.toggle("show", off);
+    $("cover").classList.toggle("show", on);
     e.currentTarget.setAttribute("aria-pressed", String(on));
     e.currentTarget.textContent = on ? "Blockschaltbild zeigen" : "Blockschaltbild verbergen";
   });
