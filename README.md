@@ -1,0 +1,2 @@
+# lf3_garage_demonstrator
+Demonstrator für Garagentorsteuerung
