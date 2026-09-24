@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Garagentor-Steuerung: EVA-Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8EDF1; --surface:#FFFFFF; --ink:#1D3557; --ink-soft:#4E6278; --rule:#B7C3CE;
+  --wall:#D6DCE1; --wall-line:#C3CBD2; --interior:#3A4652; --interior-lit:#8C8266;
+  --door:#F4F6F8; --door-groove:#AEB9C3; --ground:#9AA6B0;
+  --on:#F2B705; --on-glow:rgba(242,183,5,.35); --motor:#2E9B5F; --fault:#D0342C;
+  --input:#2F6DB5; --output:#2E9B5F; --beam:#D0342C;
+  --font:"Barlow", system-ui, "Segoe UI", Arial, sans-serif;
+  --font-c:"Barlow Semi Condensed", "Arial Narrow", "Barlow", system-ui, sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101B25; --surface:#182735; --ink:#E4ECF3; --ink-soft:#9EB0C0; --rule:#37506A;
+    --wall:#2A3A48; --wall-line:#34485A; --interior:#0B1218; --interior-lit:#5E563F;
+    --door:#C9D2DA; --door-groove:#8494A2; --ground:#4B5C6B;
+    --on-glow:rgba(242,183,5,.28);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101B25; --surface:#182735; --ink:#E4ECF3; --ink-soft:#9EB0C0; --rule:#37506A;
+  --wall:#2A3A48; --wall-line:#34485A; --interior:#0B1218; --interior-lit:#5E563F;
+  --door:#C9D2DA; --door-groove:#8494A2; --ground:#4B5C6B;
+  --on-glow:rgba(242,183,5,.28);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:17px;line-height:1.45}
+.wrap{max-width:1400px;margin:0 auto;padding:18px 22px 28px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 22px;margin-bottom:14px}
+h1{font-size:1.75rem;font-weight:700;margin:0;letter-spacing:-.01em}
+header p{margin:0;color:var(--ink-soft);max-width:70ch}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px}
+@media (max-width:920px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:14px 16px}
+.panel h2{font-family:var(--font-c);font-size:1.05rem;font-weight:600;margin:0 0 8px;color:var(--ink-soft)}
+svg{display:block;width:100%;height:auto}
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;align-items:center}
+button,select{font:inherit;color:var(--ink)}
+button{background:var(--surface);border:1.5px solid var(--ink);border-radius:5px;padding:9px 16px;cursor:pointer;font-weight:600}
+button:hover{background:var(--bg)}
+button:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--on);outline-offset:2px}
+button.primary{background:var(--ink);color:var(--surface);font-size:1.1rem;padding:12px 22px}
+button.primary:active,button.primary.pressed{transform:translateY(1px);filter:brightness(1.25)}
+button[aria-pressed="true"]{background:var(--on);border-color:var(--on);color:#1D1D1D}
+.kbd{font-size:.85rem;color:var(--ink-soft)}
+.state{font-family:var(--font-c);font-weight:600}
+/* EVA */
+.eva{position:relative}
+.eva .blk{fill:var(--surface);stroke:var(--ink);stroke-width:1.5}
+.eva .blk.in{stroke:var(--input)}
+.eva .blk.out{stroke:var(--output)}
+.eva .ctrl{fill:var(--bg);stroke:var(--ink);stroke-width:2}
+.eva text{fill:var(--ink);font-family:var(--font)}
+.eva .tag{font-weight:700;font-size:15px}
+.eva .desc{font-size:12.5px;fill:var(--ink-soft)}
+.eva .col{font-family:var(--font-c);font-size:14px;font-weight:600;fill:var(--ink-soft)}
+.eva .wire{stroke:var(--rule);stroke-width:3;fill:none;transition:stroke .12s}
+.eva .wire.on{stroke:var(--on)}
+.eva .badge circle{fill:var(--surface);stroke:var(--rule);stroke-width:2}
+.eva .badge.on circle{fill:var(--on);stroke:var(--on)}
+.eva .badge text{font-size:13px;font-weight:700;text-anchor:middle;dominant-baseline:central}
+.eva .badge.on text{fill:#1D1D1D}
+.cover{position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;background:var(--surface);border:2px dashed var(--rule);border-radius:4px;padding:20px;color:var(--ink-soft);font-size:1.15rem}
+.cover.show{display:flex}
+/* Diagramm */
+.diag{margin-top:18px}
+.diag-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px}
+canvas{display:block;width:100%;height:300px}
+.log{margin:12px 0 0;padding:0;list-style:none;font-size:.95rem;max-height:9.5em;overflow:auto}
+.log li{padding:3px 0;border-bottom:1px solid var(--rule)}
+.log time{color:var(--ink-soft);font-variant-numeric:tabular-nums;margin-right:10px}
+.below{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+@media (max-width:920px){.below{grid-template-columns:1fr}}
+details{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 16px}
+summary{cursor:pointer;font-weight:600}
+details ol{margin:10px 0 0;padding-left:1.3em}
+details li{margin-bottom:6px;max-width:75ch}
+.teacher label{display:block;margin:10px 0 4px;font-weight:500}
+.teacher select{width:100%;padding:8px;border:1.5px solid var(--ink);border-radius:5px;background:var(--surface)}
+.teacher .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Garagentor-Steuerung</h1>
+    <p>Der Kunde sagt, sein Tor macht „was es will“. Bedient die Anlage, beobachtet die Signale und erklärt ihr Verhalten nach dem EVA-Prinzip.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Anlage">
+      <h2>Anlage: Sektionaltor mit Antrieb</h2>
+      <svg id="scene" viewBox="0 0 420 320" role="img" aria-label="Garagentor in Frontansicht">
+        <defs>
+          <clipPath id="opening"><rect x="70" y="70" width="280" height="220"/></clipPath>
+          <radialGradient id="lampGlow"><stop offset="0" stop-color="#FFE9A8" stop-opacity=".9"/><stop offset="1" stop-color="#FFE9A8" stop-opacity="0"/></radialGradient>
+        </defs>
+        <rect x="0" y="20" width="420" height="275" fill="var(--wall)"/>
+        <g stroke="var(--wall-line)" stroke-width="1">
+          <line x1="0" y1="50" x2="420" y2="50"/><line x1="0" y1="110" x2="70" y2="110"/><line x1="350" y1="110" x2="420" y2="110"/>
+          <line x1="0" y1="170" x2="70" y2="170"/><line x1="350" y1="170" x2="420" y2="170"/><line x1="0" y1="230" x2="70" y2="230"/><line x1="350" y1="230" x2="420" y2="230"/>
+        </g>
+        <rect id="interior" x="70" y="70" width="280" height="220" fill="var(--interior)"/>
+        <circle id="glow" cx="210" cy="86" r="120" fill="url(#lampGlow)" opacity="0"/>
+        <rect x="195" y="74" width="30" height="6" rx="2" id="lampE1" fill="#6B7580"/>
+        <g opacity=".85">
+          <path d="M120 262 q6-30 40-34 l38-16 q20-6 50 0 l30 18 q26 4 28 32 z" fill="#5F7486"/>
+          <circle cx="152" cy="264" r="15" fill="#22303C"/><circle cx="268" cy="264" r="15" fill="#22303C"/>
+        </g>
+        <g clip-path="url(#opening)">
+          <g id="door">
+            <rect x="70" y="70" width="280" height="220" fill="var(--door)"/>
+            <g stroke="var(--door-groove)" stroke-width="2">
+              <line x1="70" y1="114" x2="350" y2="114"/><line x1="70" y1="158" x2="350" y2="158"/>
+              <line x1="70" y1="202" x2="350" y2="202"/><line x1="70" y1="246" x2="350" y2="246"/>
+            </g>
+            <rect x="196" y="262" width="28" height="6" rx="3" fill="var(--door-groove)"/>
+          </g>
+        </g>
+        <rect x="66" y="66" width="288" height="4" fill="var(--ink-soft)"/>
+        <!-- Antrieb -->
+        <rect x="178" y="32" width="64" height="26" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+        <text x="190" y="50" font-size="13" font-weight="700" fill="var(--ink)" font-family="Barlow, sans-serif">M1</text>
+        <text id="motorArrow" x="222" y="51" font-size="15" font-weight="700" fill="var(--motor)" font-family="Barlow, sans-serif"></text>
+        <text id="motorNote" x="250" y="50" font-size="11.5" fill="var(--fault)" font-family="Barlow, sans-serif"></text>
+        <!-- Warnleuchte -->
+        <circle id="h1Glow" cx="378" cy="48" r="20" fill="var(--on-glow)" opacity="0"/>
+        <rect x="372" y="56" width="12" height="6" fill="var(--ink-soft)"/>
+        <circle id="h1" cx="378" cy="48" r="9" fill="#8C7A3C" stroke="var(--ink)" stroke-width="1"/>
+        <text x="363" y="80" font-size="11.5" fill="var(--ink)" font-family="Barlow, sans-serif">H1</text>
+        <!-- Endschalter -->
+        <rect id="b1" x="355" y="72" width="12" height="12" fill="var(--surface)" stroke="var(--input)" stroke-width="2"/>
+        <text x="370" y="104" font-size="11.5" fill="var(--ink)" font-family="Barlow, sans-serif">B1</text>
+        <rect id="b2" x="355" y="252" width="12" height="12" fill="var(--surface)" stroke="var(--input)" stroke-width="2"/>
+        <text x="371" y="262" font-size="11.5" fill="var(--ink)" font-family="Barlow, sans-serif">B2</text>
+        <!-- Lichtschranke -->
+        <line id="beam" x1="64" y1="279" x2="356" y2="279" stroke="var(--beam)" stroke-width="2" stroke-dasharray="5 4"/>
+        <rect x="54" y="271" width="10" height="16" fill="var(--ink)"/>
+        <rect id="b3rx" x="356" y="271" width="10" height="16" fill="var(--ink)"/>
+        <text x="370" y="286" font-size="11.5" fill="var(--ink)" font-family="Barlow, sans-serif">B3</text>
+        <!-- Hindernis: Mülltonne -->
+        <g id="bin" opacity="0">
+          <rect x="188" y="236" width="44" height="54" rx="3" fill="#3E7A4C"/>
+          <rect x="184" y="230" width="52" height="9" rx="2" fill="#2F5E3A"/>
+          <line x1="198" y1="248" x2="198" y2="282" stroke="#2F5E3A" stroke-width="2"/><line x1="210" y1="248" x2="210" y2="282" stroke="#2F5E3A" stroke-width="2"/><line x1="222" y1="248" x2="222" y2="282" stroke="#2F5E3A" stroke-width="2"/>
+        </g>
+        <rect x="0" y="290" width="420" height="30" fill="var(--ground)"/>
+        <text id="posLabel" x="12" y="310" font-size="12.5" fill="var(--surface)" font-family="Barlow, sans-serif"></text>
+      </svg>
+      <div class="controls">
+        <button class="primary" id="btnS1" type="button">Handsender drücken</button>
+        <button id="btnBin" type="button" aria-pressed="false">Mülltonne abstellen</button>
+        <button id="btnAck" type="button" hidden>Störung quittieren</button>
+        <span class="kbd">Leertaste: Handsender, M: Mülltonne</span>
+      </div>
+      <p style="margin:10px 0 0">Zustand der Steuerung: <span class="state" id="stateLabel">Tor zu</span></p>
+    </section>
+
+    <section class="panel eva" aria-label="Blockschaltbild nach dem EVA-Prinzip">
+      <h2>Blockschaltbild nach dem EVA-Prinzip</h2>
+      <div style="position:relative">
+      <svg viewBox="0 0 540 380" id="evaSvg">
+        <text class="col" x="85" y="18" text-anchor="middle">Eingabe: Sensoren</text>
+        <text class="col" x="270" y="18" text-anchor="middle">Verarbeitung</text>
+        <text class="col" x="455" y="18" text-anchor="middle">Ausgabe: Aktoren</text>
+        <g id="evaIn"></g>
+        <rect class="ctrl" x="222" y="36" width="96" height="324" rx="4"/>
+        <text x="270" y="170" text-anchor="middle" class="tag">Steuerung</text>
+        <text x="270" y="190" text-anchor="middle" class="desc">Torantrieb</text>
+        <text x="270" y="222" text-anchor="middle" class="desc" id="evaState" style="font-weight:600;fill:var(--ink)"></text>
+        <g id="evaOut"></g>
+      </svg>
+      <div class="cover" id="cover">Blockschaltbild verborgen.<br>Zeichnet es zuerst selbst: Welche Signale gehen in die Steuerung hinein, welche kommen heraus?</div>
+      </div>
+      <p class="kbd" style="margin:6px 0 0">Gelb = Signal 1. B3 arbeitet nach dem Ruhestromprinzip: 1 bedeutet „Strahl frei“.</p>
+    </section>
+  </div>
+
+  <section class="panel diag" aria-label="Zeitablaufdiagramm">
+    <div class="diag-head">
+      <h2 style="margin:0">Zeitablaufdiagramm der letzten 20 Sekunden</h2>
+      <div class="controls" style="margin:0">
+        <button id="btnPause" type="button" aria-pressed="false">Anhalten</button>
+        <button id="btnReset" type="button">Neu starten</button>
+      </div>
+    </div>
+    <canvas id="chart" aria-label="Signalverläufe von S1, B1, B2, B3, K1, K2, H1 und E1"></canvas>
+    <ul class="log" id="log" aria-live="polite"></ul>
+  </section>
+
+  <div class="below">
+    <details>
+      <summary>Impulsfragen für die Analyse</summary>
+      <ol>
+        <li>Ordnet jedes Bauteil der Anlage einem Block zu: Eingabe, Verarbeitung oder Ausgabe.</li>
+        <li>Woher weiß die Steuerung, dass das Tor oben angekommen ist? Was passiert, wenn dieses Signal fehlt?</li>
+        <li>Warum liefert die Lichtschranke im Normalzustand eine 1 und nicht eine 0? Denkt an einen Kabelbruch.</li>
+        <li>Welche Aufgabe hat die Warnleuchte H1, welche das Licht E1? Wann schaltet E1 ab?</li>
+        <li>Lest im Zeitablaufdiagramm ab, warum das Tor gerade wieder aufgefahren ist.</li>
+        <li>Die Steuerung bekommt über die Endschalter eine Rückmeldung. Ist das schon eine Regelung? Was fehlt im Vergleich zu einer Heizung mit Thermostat?</li>
+      </ol>
+    </details>
+    <details class="teacher">
+      <summary>Lehrkraft: Fehler einbauen</summary>
+      <label for="fault">Aktiver Fehler (für die Klasse unsichtbar, wenn dieses Feld geschlossen ist)</label>
+      <select id="fault">
+        <option value="none">Kein Fehler</option>
+        <option value="dirty">Lichtschranke verschmutzt: Tor fährt ohne sichtbaren Grund wieder auf</option>
+        <option value="b2">Endschalter B2 dejustiert: Tor schließt nicht ganz</option>
+        <option value="b1">Endschalter B1 defekt: Tor bleibt oben mit Störung stehen</option>
+        <option value="sender">Handsender-Batterie schwach: reagiert nur manchmal</option>
+      </select>
+      <div class="row">
+        <button id="btnCover" type="button" aria-pressed="false">Blockschaltbild verbergen</button>
+        <button id="btnTheme" type="button">Hell/Dunkel wechseln</button>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const V = 100/8;          // % pro Sekunde, volle Fahrt in 8 s
+  const RUN_MAX = 12;       // Laufzeitüberwachung in s
+  const LIGHT_AFTER = 10;   // Nachlaufzeit Licht in s
+  const HIST_DT = 0.05, HIST_LEN = 400;
+
+  const IN = [
+    {k:"S1", d:"Funk-Handsender"},
+    {k:"B1", d:"Endschalter AUF"},
+    {k:"B2", d:"Endschalter ZU"},
+    {k:"B3", d:"Lichtschranke frei"}
+  ];
+  const OUT = [
+    {k:"K1", d:"Motor AUF"},
+    {k:"K2", d:"Motor AB"},
+    {k:"H1", d:"Warnleuchte"},
+    {k:"E1", d:"Garagenlicht"}
+  ];
+  const STATE_TXT = {ZU:"Tor zu", OEFFNET:"öffnet", OFFEN:"Tor offen", SCHLIESST:"schließt", STOPP:"angehalten", STOERUNG:"Störung"};
+
+  let S;
+  function init(){
+    S = {t:0, p:0, state:"ZU", lastDir:"down", runT:0, obstacle:false,
+         s1Until:-1, lightUntil:-1, dirtyUntil:-1, nextDirty:1,
+         paused:false, hist:[], histAcc:0, sig:{}};
+    $("log").innerHTML = "";
+    setObstacle(false);
+    log("Anlage eingeschaltet, Tor zu");
+  }
+
+  /* ---------- Blockschaltbild aufbauen ---------- */
+  const NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent){
+    const e = document.createElementNS(NS, tag);
+    for (const a in attrs) e.setAttribute(a, attrs[a]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  const evaEls = {};
+  function buildEva(){
+    const gi = $("evaIn"), go = $("evaOut");
+    IN.forEach((s,i)=>{
+      const y = 44 + i*80;
+      el("rect",{class:"blk in",x:8,y:y,width:154,height:58,rx:4},gi);
+      const t1 = el("text",{class:"tag",x:20,y:y+25},gi); t1.textContent = s.k;
+      const t2 = el("text",{class:"desc",x:20,y:y+44},gi); t2.textContent = s.d;
+      const w = el("line",{class:"wire",x1:162,y1:y+29,x2:222,y2:y+29},gi);
+      el("polygon",{points:`216,${y+24} 222,${y+29} 216,${y+34}`,fill:"var(--ink-soft)"},gi);
+      const b = el("g",{class:"badge"},gi);
+      el("circle",{cx:192,cy:y+29,r:12},b);
+      const bt = el("text",{x:192,y:y+29},b); bt.textContent="0";
+      evaEls[s.k] = {w,b,bt};
+    });
+    OUT.forEach((s,i)=>{
+      const y = 44 + i*80;
+      el("rect",{class:"blk out",x:378,y:y,width:154,height:58,rx:4},go);
+      const t1 = el("text",{class:"tag",x:390,y:y+25},go); t1.textContent = s.k;
+      const t2 = el("text",{class:"desc",x:390,y:y+44},go); t2.textContent = s.d;
+      const w = el("line",{class:"wire",x1:318,y1:y+29,x2:378,y2:y+29},go);
+      el("polygon",{points:`372,${y+24} 378,${y+29} 372,${y+34}`,fill:"var(--ink-soft)"},go);
+      const b = el("g",{class:"badge"},go);
+      el("circle",{cx:348,cy:y+29,r:12},b);
+      const bt = el("text",{x:348,y:y+29},b); bt.textContent="0";
+      evaEls[s.k] = {w,b,bt};
+    });
+  }
+
+  /* ---------- Protokoll ---------- */
+  function fmt(t){ const m=Math.floor(t/60), s=(t%60).toFixed(1); return String(m).padStart(2,"0")+":"+s.padStart(4,"0"); }
+  function log(msg){
+    const li = document.createElement("li");
+    li.innerHTML = `<time>${fmt(S.t)}</time>`;
+    li.appendChild(document.createTextNode(msg));
+    const ul = $("log"); ul.prepend(li);
+    while (ul.children.length > 30) ul.lastChild.remove();
+  }
+
+  /* ---------- Steuerung ---------- */
+  function setState(n, reason){
+    if (n === S.state) return;
+    if (n === "OEFFNET") S.lastDir = "up";
+    if (n === "SCHLIESST") S.lastDir = "down";
+    S.state = n; S.runT = 0;
+    log(reason ? reason : "Zustand: " + STATE_TXT[n]);
+    $("btnAck").hidden = n !== "STOERUNG";
+  }
+  function onS1(){
+    switch(S.state){
+      case "ZU": setState("OEFFNET","Handsender: Tor öffnet"); break;
+      case "OEFFNET": setState("STOPP","Handsender während der Fahrt: Tor hält an"); break;
+      case "OFFEN": setState("SCHLIESST","Handsender: Tor schließt"); break;
+      case "SCHLIESST": setState("STOPP","Handsender während der Fahrt: Tor hält an"); break;
+      case "STOPP": setState(S.lastDir==="up" ? "SCHLIESST" : "OEFFNET","Handsender: Tor fährt in Gegenrichtung"); break;
+      case "STOERUNG": log("Handsender ignoriert: Störung muss quittiert werden"); break;
+    }
+  }
+  function pressSender(){
+    const b = $("btnS1"); b.classList.add("pressed"); setTimeout(()=>b.classList.remove("pressed"),150);
+    if (S.paused) return;
+    if ($("fault").value === "sender" && Math.random() < 0.6) return; // Signal kommt nicht an
+    S.s1Until = S.t + 0.3;
+    onS1();
+  }
+  function setObstacle(v){
+    S.obstacle = v;
+    const b = $("btnBin");
+    b.setAttribute("aria-pressed", String(v));
+    b.textContent = v ? "Mülltonne wegnehmen" : "Mülltonne abstellen";
+    $("bin").setAttribute("opacity", v ? "1" : "0");
+  }
+
+  function step(dt){
+    S.t += dt;
+    const fault = $("fault").value;
+    // Verschmutzte Lichtschranke: kurze, zufällige Aussetzer
+    if (fault === "dirty" && S.t > S.nextDirty){
+      S.dirtyUntil = S.t + 0.25;
+      S.nextDirty = S.t + 0.9 + Math.random()*2.2;
+    }
+    const inp = () => ({
+      S1: S.t < S.s1Until,
+      B1: fault === "b1" ? false : S.p >= 100,
+      B2: fault === "b2" ? S.p <= 9 : S.p <= 0,
+      B3: !S.obstacle && !(fault === "dirty" && S.t < S.dirtyUntil)
+    });
+    let I = inp();
+
+    if (S.state === "OEFFNET"){
+      S.runT += dt;
+      S.p = Math.min(100, S.p + V*dt);
+      I = inp();
+      if (I.B1) setState("OFFEN","B1 meldet Endlage AUF: Motor aus");
+      else if (S.runT > RUN_MAX) setState("STOERUNG","Laufzeitüberwachung: Endlage AUF nicht gemeldet, Motor abgeschaltet");
+    } else if (S.state === "SCHLIESST"){
+      if (!I.B3){
+        setState("OEFFNET","B3 meldet 0: Lichtschranke unterbrochen, Tor fährt wieder auf");
+      } else {
+        S.runT += dt;
+        S.p = Math.max(0, S.p - V*dt);
+        I = inp();
+        if (I.B2) setState("ZU","B2 meldet Endlage ZU: Motor aus");
+        else if (S.runT > RUN_MAX) setState("STOERUNG","Laufzeitüberwachung: Endlage ZU nicht gemeldet, Motor abgeschaltet");
+      }
+    }
+    I = inp();
+    const K1 = S.state === "OEFFNET", K2 = S.state === "SCHLIESST";
+    if (K1 || K2) S.lightUntil = S.t + LIGHT_AFTER;
+    const H1 = ((K1||K2) && (S.t % 1) < 0.5) || (S.state === "STOERUNG" && (S.t % 0.4) < 0.2);
+    const E1 = S.t < S.lightUntil;
+    S.sig = {S1:I.S1, B1:I.B1, B2:I.B2, B3:I.B3, K1, K2, H1, E1};
+
+    S.histAcc += dt;
+    while (S.histAcc >= HIST_DT){
+      S.histAcc -= HIST_DT;
+      S.hist.push(Object.assign({}, S.sig));
+      if (S.hist.length > HIST_LEN) S.hist.shift();
+    }
+  }
+
+  /* ---------- Darstellung ---------- */
+  function render(){
+    const g = S.sig;
+    $("door").setAttribute("transform", `translate(0 ${-(S.p/100)*214})`);
+    $("interior").setAttribute("fill", g.E1 ? "var(--interior-lit)" : "var(--interior)");
+    $("glow").setAttribute("opacity", g.E1 ? "1" : "0");
+    $("lampE1").setAttribute("fill", g.E1 ? "#FFE9A8" : "#6B7580");
+    $("h1").setAttribute("fill", g.H1 ? "var(--on)" : "#8C7A3C");
+    $("h1Glow").setAttribute("opacity", g.H1 ? "1" : "0");
+    $("b1").setAttribute("fill", g.B1 ? "var(--input)" : "var(--surface)");
+    $("b2").setAttribute("fill", g.B2 ? "var(--input)" : "var(--surface)");
+    $("motorArrow").textContent = g.K1 ? "▲" : g.K2 ? "▼" : "";
+    $("motorNote").textContent = (g.K1 && S.p >= 100) ? "läuft gegen Anschlag" : "";
+    const beam = $("beam");
+    if (S.obstacle){ beam.setAttribute("x2","188"); beam.setAttribute("opacity","1"); }
+    else { beam.setAttribute("x2","356"); beam.setAttribute("opacity", g.B3 ? "1" : ".25"); }
+    $("b3rx").setAttribute("fill", g.B3 ? "var(--input)" : "var(--ink)");
+    $("posLabel").textContent = `Torstellung: ${Math.round(S.p)} % offen`;
+    $("stateLabel").textContent = STATE_TXT[S.state];
+    $("stateLabel").style.color = S.state === "STOERUNG" ? "var(--fault)" : "";
+    $("evaState").textContent = STATE_TXT[S.state];
+    for (const k in evaEls){
+      const on = !!g[k];
+      evaEls[k].w.classList.toggle("on", on);
+      evaEls[k].b.classList.toggle("on", on);
+      evaEls[k].bt.textContent = on ? "1" : "0";
+    }
+    drawChart();
+  }
+
+  const cv = $("chart"), cx = cv.getContext("2d");
+  function drawChart(){
+    const dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if (cv.width !== Math.round(W*dpr) || cv.height !== Math.round(H*dpr)){
+      cv.width = Math.round(W*dpr); cv.height = Math.round(H*dpr);
+    }
+    cx.setTransform(dpr,0,0,dpr,0,0);
+    const cs = getComputedStyle(document.documentElement);
+    const ink = cs.getPropertyValue("--ink").trim(), soft = cs.getPropertyValue("--ink-soft").trim(),
+          rule = cs.getPropertyValue("--rule").trim(), cin = cs.getPropertyValue("--input").trim(),
+          cout = cs.getPropertyValue("--output").trim();
+    cx.clearRect(0,0,W,H);
+    const keys = ["S1","B1","B2","B3","K1","K2","H1","E1"];
+    const labW = Math.min(170, W*0.28), top = 6, bottom = 22;
+    const rowH = (H - top - bottom) / keys.length, amp = rowH*0.55;
+    const x0 = labW, x1 = W - 8, dx = (x1-x0)/(HIST_LEN-1);
+    cx.font = "600 14px Barlow, system-ui, sans-serif"; cx.textBaseline = "middle";
+    keys.forEach((k,i)=>{
+      const base = top + (i+1)*rowH - rowH*0.22;
+      const isIn = i < 4;
+      cx.fillStyle = ink; cx.fillText(k, 8, base - amp/2);
+      cx.fillStyle = soft; cx.font = "400 12.5px Barlow, system-ui, sans-serif";
+      const d = (isIn ? IN[i] : OUT[i-4]).d;
+      if (labW > 110) cx.fillText(d, 36, base - amp/2);
+      cx.font = "600 14px Barlow, system-ui, sans-serif";
+      cx.strokeStyle = rule; cx.lineWidth = 1;
+      cx.beginPath(); cx.moveTo(x0, base+.5); cx.lineTo(x1, base+.5); cx.stroke();
+      cx.strokeStyle = isIn ? cin : cout; cx.lineWidth = 2.2;
+      cx.beginPath();
+      const off = HIST_LEN - S.hist.length;
+      let prev = null;
+      S.hist.forEach((h,j)=>{
+        const x = x0 + (off+j)*dx, y = h[k] ? base - amp : base;
+        if (prev === null) cx.moveTo(x,y); else { cx.lineTo(x,prev); cx.lineTo(x,y); }
+        prev = y;
+      });
+      cx.stroke();
+    });
+    cx.fillStyle = soft; cx.font = "400 12px Barlow, system-ui, sans-serif"; cx.textBaseline = "alphabetic";
+    for (let s=0; s<=20; s+=5){
+      const x = x1 - s*(x1-x0)/20;
+      cx.fillText(s === 0 ? "jetzt" : `−${s} s`, Math.min(x-12, W-34), H-5);
+      cx.strokeStyle = rule; cx.beginPath(); cx.moveTo(x, top); cx.lineTo(x, H-bottom); cx.stroke();
+    }
+  }
+
+  let last = performance.now();
+  function loop(now){
+    const dt = Math.min(0.1, (now - last)/1000); last = now;
+    if (!S.paused) step(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- Bedienung ---------- */
+  $("btnS1").addEventListener("click", pressSender);
+  $("btnBin").addEventListener("click", ()=>{ setObstacle(!S.obstacle); log(S.obstacle ? "Mülltonne in die Toröffnung gestellt" : "Mülltonne weggenommen"); });
+  $("btnAck").addEventListener("click", ()=>{ S.state="STOPP"; S.runT=0; $("btnAck").hidden=true; log("Störung quittiert, Tor steht"); });
+  $("btnPause").addEventListener("click", e=>{
+    S.paused = !S.paused;
+    e.currentTarget.setAttribute("aria-pressed", String(S.paused));
+    e.currentTarget.textContent = S.paused ? "Weiterlaufen lassen" : "Anhalten";
+  });
+  $("btnReset").addEventListener("click", ()=>{
+    const wasPaused = S.paused; init();
+    if (wasPaused){ $("btnPause").setAttribute("aria-pressed","false"); $("btnPause").textContent="Anhalten"; }
+  });
+  $("btnCover").addEventListener("click", e=>{
+    const on = !$("cover").classList.contains("show");
+    $("cover").classList.toggle("show", on);
+    e.currentTarget.setAttribute("aria-pressed", String(on));
+    e.currentTarget.textContent = on ? "Blockschaltbild zeigen" : "Blockschaltbild verbergen";
+  });
+  $("btnTheme").addEventListener("click", ()=>{
+    const r = document.documentElement;
+    const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    r.dataset.theme = dark ? "light" : "dark";
+  });
+  document.addEventListener("keydown", e=>{
+    if (e.target.tagName === "SELECT") return;
+    if (e.code === "Space"){ e.preventDefault(); pressSender(); }
+    else if (e.key === "m" || e.key === "M"){ setObstacle(!S.obstacle); log(S.obstacle ? "Mülltonne in die Toröffnung gestellt" : "Mülltonne weggenommen"); }
+  });
+
+  buildEva();
+  init();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
