@@ -133,7 +133,7 @@ details li{margin-bottom:6px;max-width:75ch}
         <rect x="66" y="66" width="288" height="4" fill="var(--ink-soft)"/>
         <!-- Antrieb -->
         <rect x="178" y="32" width="64" height="26" rx="3" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
-        <text x="190" y="50" font-size="13" font-weight="700" fill="var(--ink)" font-family="Barlow, sans-serif">M1</text>
+        <text x="190" y="50" font-size="13" font-weight="700" fill="var(--ink)" font-family="Barlow, sans-serif">K1/2</text>
         <text id="motorArrow" x="222" y="51" font-size="15" font-weight="700" fill="var(--motor)" font-family="Barlow, sans-serif"></text>
         <text id="motorNote" x="250" y="50" font-size="11.5" fill="var(--fault)" font-family="Barlow, sans-serif"></text>
         <!-- Warnleuchte -->
@@ -493,7 +493,7 @@ details li{margin-bottom:6px;max-width:75ch}
   });
   $("btnCover").addEventListener("click", e=>{
     const on = !$("cover").classList.contains("show");
-    $("cover").classList.toggle("show", on);
+    $("cover").classList.toggle("show", off);
     e.currentTarget.setAttribute("aria-pressed", String(on));
     e.currentTarget.textContent = on ? "Blockschaltbild zeigen" : "Blockschaltbild verbergen";
   });
